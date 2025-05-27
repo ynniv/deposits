@@ -1,29 +1,24 @@
----
-title: "Bitcoin Deposits: A Layer 3 Protocol for Trust-Minimized Lightning Wallets"
-author: Vinny Fiano
-email: ynniv@ynniv.com
-nostr: npub12akj8hpakgzk6gygf9rzlm343nulpue3pgkx8jmvyeayh86cfrus4x6fdh
-excerpt: A Layer 3 protocol utilizing Proof of Over-Reserves that enables users to maintain Lightning wallets without requiring on-chain Bitcoin transactions or channel management.
-layout: full-width
----
+# Bitcoin Deposits: A Layer 3 Protocol for Trust-Minimized Lightning Wallets
 
-<span class="newthought">We present Bitcoin Deposits</span>, a Layer 3 protocol utilizing Proof of Over-Reserves that enables users to maintain Lightning wallets without requiring on-chain Bitcoin transactions or channel management. The protocol introduces validated outputs—a new Lightning extension that allows commitment transactions to include outputs subject to agreed-upon validation rules, enforcing protocol compliance at the consensus layer.
+Vinny Fiano<br/>
+ynniv@ynniv.com<br/>
+npub12akj8hpakgzk6gygf9rzlm343nulpue3pgkx8jmvyeayh86cfrus4x6fdh
 
 ## Abstract
 
-We present Bitcoin Deposits, a Layer 3 protocol utilizing Proof of Over-Reserves that enables users to maintain Lightning wallets without requiring on-chain Bitcoin transactions or channel management. The protocol introduces validated outputs—a new Lightning extension that allows commitment transactions to include outputs subject to agreed-upon validation rules, enforcing protocol compliance at the consensus layer. Through cryptographic authentication, mandatory 120% reserve requirements, metrics-based auditor monitoring, and deterministic validation rules, the system creates economic incentives for honest behavior while providing instant Lightning access. Integration with Nostr Wallet Connect enables users to access deposits from any compatible wallet interface. The protocol relies on objective performance metrics and neutral party intervention for recovery scenarios, creating a trust-minimized (but not fully trustless) system that bridges the gap between custodial services and self-custody for users below the UTXO line.
+<span class="newthought">We present Bitcoin Deposits</span>, a Layer 3 protocol utilizing Proof of Over-Reserves that enables users to maintain Lightning wallets without requiring on-chain Bitcoin transactions or channel management. This protocol introduces validated outputs—a new Lightning extension that allows commitment transactions to include outputs subject to agreed-upon validation rules, enforcing protocol compliance at the consensus layer. Through cryptographic authentication, mandatory over-reserve requirements, metrics-based auditor monitoring, and deterministic validation rules, the system creates economic incentives for honest behavior while providing instant Lightning access. Integration with Nostr Wallet Connect enables users to access deposits from any compatible wallet interface. We rely on objective performance metrics and neutral party intervention for recovery scenarios, creating a trust-minimized (but not fully trustless) system that bridges the gap between custodial services and self-custody for users below the UTXO line.
 
 ## 1. Introduction
 
 <span class="newthought">The Lightning Network has demonstrated</span> the viability of off-chain Bitcoin transactions, achieving sub-second settlement times with minimal fees. However, adoption remains constrained by the complexity of channel management and the requirement for on-chain transactions to establish payment channels. Each new Lightning user must execute at least one on-chain transaction, creating a scalability bottleneck as Bitcoin's block space is limited.
 
-Critically, millions of potential Bitcoin users exist "below the UTXO line"—their total holdings are worth less than the on-chain fees required to establish self-custody.<label for="sn-utxo-line" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-utxo-line" class="margin-toggle"/><span class="sidenote">The 'UTXO line' represents the economic threshold where transaction fees exceed the practical value of creating a UTXO. When fees are $50, anyone with less than $500-1000 faces prohibitive costs.</span> When transaction fees spike to $50 or more, users with $100 in savings face an impossible choice: pay 50% of their wealth in fees or remain on custodial services. This economic reality locks out the very populations that would benefit most from Bitcoin's financial inclusion.
+Critically, millions of potential Bitcoin users exist "below the UTXO line"—their total holdings are worth less than the on-chain fees required to establish self-custody. The 'UTXO line' represents the economic threshold where transaction fees exceed the practical value of creating a UTXO. When fees are $50, anyone with less than $500-1000 faces prohibitive costs.</span> When transaction fees spike to $50 or more, users with $100 in savings face an impossible choice: pay 50% of their wealth in fees or remain on custodial services. This economic reality locks out the very populations that would benefit most from Bitcoin's financial inclusion.
 
-Additionally, Lightning's current architecture assumes users can maintain high availability for channel management and have reliable internet for gossip synchronization.<label for="mn-connectivity" class="margin-toggle">&#8853;</label><input type="checkbox" id="mn-connectivity" class="margin-toggle"/><span class="marginnote">Lightning's always-online requirement excludes users in developing regions with intermittent internet access.</span> This excludes users in developing regions with intermittent connectivity and those who need simple, phone-based payment solutions.
+Additionally, Lightning's current architecture assumes users can maintain high availability for channel management and have reliable internet for gossip synchronization. This excludes users in developing regions with intermittent connectivity and those who need simple, phone-based payment solutions.
 
 Existing solutions to this problem involve custodial services that sacrifice Bitcoin's core property of trustlessness. Users must trust operators to maintain reserves and process withdrawals honestly. Chaumian Ecash systems like Cashu provide privacy but require users to trust mints with custody of funds.
 
-We propose Bitcoin Deposits, a protocol that enables Lightning wallets through validated outputs—a Lightning protocol extension that allows commitment transactions to include outputs subject to agreed-upon validation rules. Users control deposits through cryptographic keys without managing channels, while operators are constrained by protocol rules enforced at the Lightning channel level and monitored by auditors. The system achieves:
+We propose a new layer 3 protocol that enables Lightning wallets through validated outputs—a Lightning protocol extension that allows commitment transactions to include outputs subject to agreed-upon validation rules. Users control deposits through cryptographic keys without managing channels, while operators are constrained by protocol rules enforced at the Lightning channel level and monitored by auditors. The system achieves:
 
 - **Zero on-chain footprint** for users through Layer 3 abstraction
 - **Offline receiving** where the vault creates invoices on user's behalf
@@ -301,9 +296,25 @@ This approach transforms the trust model: instead of trusting one operator with 
 The protocol enables natural progression as users' needs evolve:
 
 ```
-Exchange Balance → Corp-Audited Vault → Community Vault → Phoenix/Breez → Raw Lightning
-(Full Custody)    ($100s, corporate)   ($100s, community) (Self-custody)  (Full control)
-Zero control      Block auditor         Multiple auditors  On-chain cost   Complex
+Trust                               Complexity
+Level                               Level
+  |                                 |
+  |   Raw Lightning                 | High
+  |   (Full control)                |
+  |                                 |
+  |   Phoenix/Breez                 |
+  |   (Self-custody)                |
+  |                                 |
+  |   Community Vault               |
+  |   ($100s, community auditors)   |
+  |                                 |
+  |   Corp-Audited Vault            |
+  |   ($100s, corporate auditor)    |
+  |                                 |
+  |   Exchange Balance              | Low
+  |   (Full Custody, zero control)  |
+  |                                 |
+  v                                 v
 ```
 
 Users can move between models based on:
