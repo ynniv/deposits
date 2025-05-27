@@ -1,8 +1,13 @@
---
-title: DRAFT LITE Bitcoin Deposits: A Layer 3 Protocol for Trust-Minimized Lightning Wallets
---
+---
+layout: full-width
+title: "Bitcoin Deposits: A Layer 3 Protocol for Trust-Minimized Lightning Wallets"
+author: Vinny Fiano
+email: ynniv@ynniv.com
+nostr: npub12akj8hpakgzk6gygf9rzlm343nulpue3pgkx8jmvyeayh86cfrus4x6fdh
+excerpt: A Layer 3 protocol utilizing Proof of Over-Reserves that enables users to maintain Lightning wallets without requiring on-chain Bitcoin transactions or channel management.
+---
 
-Vinny Fiano / ynniv@ynniv.com / npub12akj8hpakgzk6gygf9rzlm343nulpue3pgkx8jmvyeayh86cfrus4x6fdh
+{% newthought "We present Bitcoin Deposits" %}, a Layer 3 protocol utilizing Proof of Over-Reserves that enables users to maintain Lightning wallets without requiring on-chain Bitcoin transactions or channel management. The protocol introduces validated outputs—a new Lightning extension that allows commitment transactions to include outputs subject to agreed-upon validation rules, enforcing protocol compliance at the consensus layer.
 
 ## Abstract
 
@@ -10,11 +15,11 @@ We present Bitcoin Deposits, a Layer 3 protocol utilizing Proof of Over-Reserves
 
 ## 1. Introduction
 
-The Lightning Network has demonstrated the viability of off-chain Bitcoin transactions, achieving sub-second settlement times with minimal fees. However, adoption remains constrained by the complexity of channel management and the requirement for on-chain transactions to establish payment channels. Each new Lightning user must execute at least one on-chain transaction, creating a scalability bottleneck as Bitcoin's block space is limited.
+{% newthought "The Lightning Network has demonstrated" %} the viability of off-chain Bitcoin transactions, achieving sub-second settlement times with minimal fees. However, adoption remains constrained by the complexity of channel management and the requirement for on-chain transactions to establish payment channels. Each new Lightning user must execute at least one on-chain transaction, creating a scalability bottleneck as Bitcoin's block space is limited.
 
-Critically, millions of potential Bitcoin users exist "below the UTXO line"—their total holdings are worth less than the on-chain fees required to establish self-custody. When transaction fees spike to $50 or more, users with $100 in savings face an impossible choice: pay 50% of their wealth in fees or remain on custodial services. This economic reality locks out the very populations that would benefit most from Bitcoin's financial inclusion.
+{% sidenote "utxo-line" "The 'UTXO line' represents the economic threshold where transaction fees exceed the practical value of creating a UTXO. When fees are $50, anyone with less than $500-1000 faces prohibitive costs." %}Critically, millions of potential Bitcoin users exist "below the UTXO line"—their total holdings are worth less than the on-chain fees required to establish self-custody. When transaction fees spike to $50 or more, users with $100 in savings face an impossible choice: pay 50% of their wealth in fees or remain on custodial services. This economic reality locks out the very populations that would benefit most from Bitcoin's financial inclusion.
 
-Additionally, Lightning's current architecture assumes users can maintain high availability for channel management and have reliable internet for gossip synchronization. This excludes users in developing regions with intermittent connectivity and those who need simple, phone-based payment solutions.
+{% marginnote "connectivity" "Lightning's always-online requirement excludes users in developing regions with intermittent internet access." %}Additionally, Lightning's current architecture assumes users can maintain high availability for channel management and have reliable internet for gossip synchronization. This excludes users in developing regions with intermittent connectivity and those who need simple, phone-based payment solutions.
 
 Existing solutions to this problem involve custodial services that sacrifice Bitcoin's core property of trustlessness. Users must trust operators to maintain reserves and process withdrawals honestly. Chaumian Ecash systems like Cashu provide privacy but require users to trust mints with custody of funds.
 

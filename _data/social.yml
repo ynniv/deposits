@@ -1,0 +1,11 @@
+- name: GitHub
+  url: https://github.com/ynniv
+  icon: github
+
+- name: Email
+  url: mailto:ynniv@ynniv.com
+  icon: email
+
+- name: Nostr
+  url: https://primal.net/npub12akj8hpakgzk6gygf9rzlm343nulpue3pgkx8jmvyeayh86cfrus4x6fdh
+  icon: nostr

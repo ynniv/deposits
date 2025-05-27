@@ -1,8 +1,30 @@
-theme: minima
+# Tufte-Jekyll Configuration
+title: "Bitcoin Deposits Protocol"
+email: ynniv@ynniv.com
+description: > # this means to ignore newlines until "baseurl:"
+  Bitcoin Deposits: A Layer 3 protocol for trust-minimized Lightning wallets.
+  Enabling Lightning payments without on-chain transactions or channel management.
 
-# Footer settings
-author:
-  name: "ynniv@ynniv.com"
+baseurl: "/deposits" # the subpath of your site, e.g. /blog
+url: "https://ynniv.github.io" # the base hostname & protocol for your site
 
-# SEO settings
-lang: en-US
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Kramdown settings
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - theme.md
+  - README.md
