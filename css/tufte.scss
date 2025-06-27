@@ -128,8 +128,11 @@ p, ol, ul { font-size: 1.4rem; }
 p, li { line-height: 2rem;
         margin-top: 1.4rem;
         padding-right: 2rem; //removed because,  why?
-        overflow: scroll;
+        overflow: auto;
         vertical-align: baseline; }
+
+/* hack for npub length */
+h1 + * { overflow: hidden; }
 
 /* Chapter Epigraphs */
 div.epigraph { margin: 3.5636rem 0; }
