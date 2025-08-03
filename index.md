@@ -81,27 +81,28 @@ The validated outputs extension requires:
 
 Both channel partners must validate all outputs before signing commitments, ensuring consensus on protocol rules.
 
-### 2.4 Auditors
+### 2.4 Cross-Vault Auditing Network
 
-In the Bitcoin Deposits protocol, "auditors" serve a dual purpose:
-1. **Watchtower role**: Monitor for outdated commitment transactions
-2. **Monitoring role**: Validate and monitor vault operator behavior
+In the Bitcoin Deposits protocol, auditing is handled through a natural network of cross-vault relationships rather than dedicated auditor entities. Operators should spread their vault operations across 4-6 different channel partners, and aim for each vault to be audited by the channel partners from the their other vaults.
 
-Auditors are peers that validate commitment transactions but cannot reject them. Instead, they:
-- Collect metrics on vault availability and correctness
-- Report compliance scores for reputation systems
-- Provide objective, verifiable performance data
-- Monitor for collusion between operators and channel partners
-- Force close shared channels when theft is detected in cross-audited vaults
+**Cross-Auditing Structure:**
+- Operators establish multiple vaults with different channel partners
+- Each channel partner serves as an auditor for the operator's other vaults
+- Creates a web of mutual accountability and monitoring
+- Natural geographic and operational diversity
 
-Critically, auditors can be operated by various entities:
-- **Corporate auditors**: Large companies with established reputations
-- **Community auditors**: Bitcoin organizations and trusted community members
-- **Independent auditors**: Anonymous operators building reputation over time
-- **Commercial auditors**: Paid services competing on reliability and accuracy
-- **Channel partners**: Who naturally audit vaults they have visibility into
+**Auditing Functions:**
+- Monitor vault payment processing integrity across the network
+- Validate proper crediting of vault payments
+- Confirm reserves and operational metrics
+- Report compliance issues and performance data
+- Force close controled channels when invalid operations reveal operator to be dishonest
 
-Each deposit specifies a set of acceptable auditors, while the channel state tracks which auditors are currently participating. This creates a two-layer system: deposits express auditor preferences, and channels enforce auditor participation.
+**Network Benefits:**
+- Leverages existing vault operator relationships
+- Creates symmetric accountability between operators
+- Natural business incentives for accurate monitoring
+- Scales organically with network growth
 
 ## 3. Vault Multisig Addressing
 
@@ -251,43 +252,38 @@ The protocol creates organic trust through structural incentives rather than pur
 
 ### 5.2 Multi-Vault Architecture for Collusion Prevention
 
-**Collusion Prevention Through Cross-Vault Accountability**
+**Recommended Vault Network Structure:**
+Operators should maintain 4-6 vaults with different channel partners, creating a robust cross-auditing network:
 
-Since the 2-of-2 multisig requirement means both parties must cooperate to steal funds, the protocol creates consequences that outweigh the potential rewards of collusion.
+```
+Operator A with Channel Partners B, C, D, E, F
+├── Vault A-B (audited by partners C, D, E, F)
+├── Vault A-C (audited by partners B, D, E, F)
+├─ [...]
+```
 
-**Recommended Multi-Vault Structure:**
-- Operators should maintain multiple vaults with different channel partners
-- Each channel partner should also serve as an auditor for other vaults
-- Vaults should maintain roughly balanced deposit totals
-- Security deposits should be sized appropriately relative to vault balances
+**Security Deposit Alignment:**
+Each operator's security deposit per vault equals:
+```
+Security Deposit = 100% of vault value ÷ number of other vaults
+```
+
+For 5 total vaults: Security deposit = 25% of vault value
+For 6 total vaults: Security deposit = 20% of vault value
 
 **Cross-Auditing Network Effect:**
-```
-Operator A ←→ Channel Partner B (audits Vault C)
-    ↓                ↓
-  Vault 1         Auditor for
-    ↓              Vault 3
-Operator A ←→ Channel Partner C (audits Vault B)
-    ↓                ↓
-  Vault 2         Auditor for
-                   Vault 1
-```
-
-This creates a web of mutual accountability where theft from one vault can trigger consequences across all vaults.
-
-**Close-for-Dishonesty Mechanism:**
-
-When an auditor detects vault theft (operator and channel partner colluding):
-1. Auditor broadcasts proof of theft to all network participants
-2. Other channel partners of the dishonest operator may initiate force closes
-3. Security deposits from closed vaults are forfeited
-4. Forfeited deposits can fund the recovery party to recreate stolen vault
+This structure creates powerful economic incentives against collusion:
+- Channel partners monitor each other's vault operations
+- Theft from one vault triggers force closes of other vaults
+- Total security deposit forfeit approximates stolen vault balance
+- Recovery handled by existing channel partner network
+- No net gain for colluding parties
 
 **Economic Balance:**
-- If vaults are balanced and security deposits properly sized
-- Total forfeited security approximates stolen vault balance
-- Recovery party has funds to make depositors whole
-- No net gain for colluding parties
+- Multiple vault failures drain security deposits quickly
+- Recovery operators (other channel partners) gain deposits from failures
+- Reputation damage affects all vault relationships
+- Long-term revenue exceeds short-term theft opportunities
 
 ### 5.3 Attack Vector Analysis
 
@@ -340,26 +336,28 @@ Users naturally distribute their holdings based on this hierarchy:
 - Preference for operators with robust multi-vault architectures
 - Diversification across all levels for resilience
 
-### 5.5 Auditor Monitoring
+### 5.5 Cross-Vault Monitoring
 
-**Reputation System Framework:**
+Channel partners report objective metrics about their operator's other vaults:
+- **Uptime**: Vault response rates across the network
+- **Payment Integrity**: Proper multisig payment processing
+- **Reserve Compliance**: Verified reserve levels vs. deposits
+- **Response Times**: Payment authorization latency
+- **Cross-Vault Health**: Network connectivity and balance
+- **Operational Consistency**: Performance across all vaults
 
-Auditors report objective metrics that create transparent reputation scores:
-- **Uptime**: Percentage of time operator responds to requests
-- **Correctness**: Valid signature rate on payment authorizations
-- **Timeliness**: Response time for payment processing
-- **Reserve Ratio**: Validated reserve levels vs. deposits
-- **Vault Integrity**: Proper crediting of multisig vault payments
-- **Multi-Vault Health**: Number and diversity of vault relationships
-- **Cross-Audit Participation**: Active auditing of other operators
+**Reporting Structure:**
+- Metrics stored by operator public key
+- Aggregated across all channel partners in the network
+- Historical trends enable early warning systems
+- Cross-validation between multiple reporting partners
+- Transparent scoring for user decision-making
 
-**Storage and Query:**
-- Reports stored by operator public key in distributed systems
-- Scores aggregated from last 90 days of activity
-- Query interface allows filtering by auditor, timeframe, and metric type
-- Historical data enables trend analysis and early warning systems
-
-**Key Insight**: This is not a social reputation system—auditors report objective metrics that can be independently verified. Multiple auditors reporting similar metrics provide confidence in accuracy.
+**Network Transparency:**
+- Users can assess operator vault network health
+- Market rewards operators with robust cross-auditing
+- Poor performers isolated through reduced partnerships
+- Natural selection improves overall network quality
 
 ### 5.6 Recovery Mechanisms
 
@@ -369,26 +367,42 @@ Auditors report objective metrics that create transparent reputation scores:
 3. Standard Lightning cooperative close proceeds
 
 **Force Close Recovery**:
-1. Validated output appears in commitment transaction
-2. Vault funds and security deposit transfer to neutral party
-3. Neutral party coordinates re-homing of deposits
-4. Balances obtained via auditor records or channel counterparty
-5. If operator has other vaults, dishonesty puts security deposits at risk
 
-**Timeout Recovery for Stuck HTLCs:**
-1. HTLCs to vault addresses have automatic timeout fallback
-2. After timeout period, funds go to vault output address
-3. Neutral party ensures funds reach intended vault system
-4. Prevents permanent loss due to key loss or peer unavailability
+When a force close occurs, the validated output transfers vault funds to a recovery script. Since operators maintain 4-6 vaults with different channel partners, and each vault is audited by the other channel partners in the network, recovery is handled by this existing web of cross-auditing relationships.
 
-**Recovery Guarantee:**
-Users' funds are protected through the combination of:
-- Validated output reserves (covers immediate losses)
-- Multiple auditor records for balance verification
-- Economic incentives for proper recovery handling
-- Multi-vault security deposits for theft recovery
-- Configuration-appropriate accountability
-- **Multisig timeout recovery prevents permanent HTLC loss**
+**Recovery Process**:
+1. Force close commitment transaction includes validated output sending funds to recovery script
+2. Recovery script implements time-based degradation selecting from the operator's other channel partners:
+   - **Day 1**: Single pseudorandomly selected channel partner (from operator's other vaults) can claim
+   - **Week 1**: Any 3 channel partners from the network can claim together
+   - **Week 2**: Any single channel partner from the network can claim
+   - **Week 3+**: Community fallback addresses can claim
+3. Selection uses future block entropy to prevent frontrunning manipulation
+4. Claiming channel partners recreate deposits using their existing audit records
+5. Recovery leverages existing vault infrastructure and relationships
+
+**Security Alignment**:
+This recovery model aligns with the security deposit structure where each operator's security deposit equals 100% of vault value divided by the number of other vaults they operate. Since channel partners are already auditing each other's vaults and maintaining the necessary infrastructure, they naturally serve as qualified recovery operators.
+
+**Anti-Frontrunning Design**:
+- Recovery outcome depends on future block hash, unpredictable when force close initiated
+- Block delay prevents manipulation of selection timing
+- Creates fair, unbiased auditor selection for recovery
+
+**Selected Auditor Obligations**:
+- Recreate deposit accounts with equivalent balances
+- Honor existing payment authorizations
+- Coordinate recovery across multiple selected auditors if needed
+- Accept monitoring of recovery process
+
+**Recovery Guarantee**:
+Users' funds are protected through:
+- Cryptographic enforcement via Bitcoin consensus
+- Deterministic selection prevents gaming
+- Auditor records enable accurate balance verification
+- Economic incentives align auditor interests with proper recovery
+
+This approach eliminates human discretion from recovery while ensuring funds reach qualified parties who can properly restore vault operations.
 
 ### 5.7 Configuration Flexibility
 
@@ -511,28 +525,40 @@ Validated output messages integrate with existing Lightning message flow during 
 
 ### 6.2 Vault Operator Requirements
 
-- Maintain Lightning channels with sufficient capacity
+**Multi-Vault Network Management:**
+- Ideally maintain 4-6 Lightning channels with different partners
+- Coordinate vault addressing across all channels
+- Ensure channel partners can audit other vaults in the network
+- Maintain balanced vault sizes for symmetric security exposure
+- Choose security deposits aligned with vault count (~100% ÷ count)
+
+**Operational Requirements:**
 - Process deposit operations and payment authorizations
-- Coordinate with channel partner for vault payment processing
-- Maintain full visibility into deposit state for validation
-- Maintain reserve output with balance greater than total deposits
-- Should operate multiple vaults with different channel partners
-- Should maintain roughly balanced vault sizes
-- Work with auditor-approved operations for deposit transfers
-- Publish maintenance fee schedules
-- Coordinate with neutral parties for recovery scenarios during force closes
-- Build and maintain reputation through consistent operation
+- Maintain full reserve requirements across all vaults
+- Publish consistent fee schedules across vault network
+- Coordinate with channel partners for recovery scenarios
+- Build reputation through consistent cross-vault performance
 
 ### 6.3 Channel Partner Requirements
 
+**Vault Infrastructure Support:**
 - Participate in 2-of-2 multisig vault addressing
 - Validate and co-sign vault payment processing
 - Monitor commitment transactions for validated outputs
 - Provide infrastructure support for vault operations
-- Should serve as auditor for other operators' vaults
-- Should initiate force closes upon proof of theft in audited vaults
-- Assist in recovery scenarios when configured as recovery agent
-- Maintain auditor-approved operations
+
+**Cross-Auditing Responsibilities:**
+- Monitor channel partners' other vault operations
+- Report performance metrics to reputation systems
+- Force close upon detecting dishonesty in audited vaults
+- Participate in recovery processes for force closes
+- Maintain audited vault balance records
+
+**Network Participation:**
+- Maintain relationships with multiple vault operators
+- Coordinate with other channel partners for monitoring
+- Participate in recovery processes as needed
+- Compete on infrastructure quality and reliability
 
 ### 6.4 Auditor Requirements
 
@@ -587,38 +613,38 @@ Bitcoin Deposits serves users across the entire economic spectrum:
 - Anonymous operators enable permissionless access
 - Distributed deposits minimize risk
 
-### 7.2 Risk Management Through Diversification
+### 7.2 Risk Management Through Network Effects
 
-The protocol's design naturally encourages intelligent risk management:
+**Vault Network Distribution:**
+The protocol naturally encourages risk management through network effects:
 
-**Reputation-Based Distribution**:
-- Allocate largest deposits to highest-reputation operators
-- Prefer operators with established multi-vault architectures
-- Use medium-reputation operators for moderate balances
-- Test new operators with minimal amounts
-- Maintain diversity across operator types and configurations
+**Operator Selection Criteria:**
+- Prefer operators with 4-6 vault robust networks
+- Assess quality and reputation of channel partners
+- Monitor cross-vault performance metrics
+- Evaluate geographic and operational diversity
+- Track security deposit alignment across vaults
 
-**Architecture Awareness**:
-- Multi-vault configurations provide highest security
-- Cross-auditing relationships increase transparency
+**Network Health Indicators:**
 - Balanced vault sizes indicate professional operation
-- Independent auditors provide objective monitoring
-- Match deposit sizes to architectural robustness
+- Diverse channel partner relationships reduce systemic risk
+- Consistent performance across all vaults builds confidence
+- Strong cross-auditing relationships provide transparency
+- Security deposit ratios align with network size
 
-**Dynamic Rebalancing**:
-- Actively move deposits based on reputation changes
-- Monitor multi-vault health metrics
-- Automated strategies based on auditor metrics
-- Market-driven allocation rewards good operators
-- Early warning systems prevent losses
+**Dynamic Rebalancing:**
+- Monitor network health changes over time
+- Move deposits based on cross-vault performance
+- Reward operators who maintain robust networks
+- Early warning systems detect network degradation
+- Market forces improve network architectures
 
-**Systemic Resilience**:
-- No single point of failure for user funds
-- Operator failures affect only portion of holdings
-- Competition ensures alternative operators exist
-- Natural selection improves operator quality over time
-- Multisig addressing prevents most common attack vectors
-- Cross-vault accountability deters collusion
+**Systemic Resilience:**
+- Multiple vault failures required to affect user funds
+- Channel partner network provides natural recovery
+- Cross-auditing prevents undetected issues
+- Network effects punish bad actors across all relationships
+- Organic trust through visible network relationships
 
 ### 7.3 Economic Incentive Alignment
 
