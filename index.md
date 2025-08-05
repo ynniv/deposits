@@ -1,4 +1,4 @@
-# Bitcoin Deposits: A Layer 3 Protocol for Trust-Minimized Lightning Wallets
+# Bitcoin Deposits: A Layer 3 Protocol for Zero UTXO Trust-Minimized Lightning Wallets
 
 Vinny Fiano<br/>
 ynniv@ynniv.com<br/>
@@ -6,39 +6,40 @@ npub12akj8hpakgzk6gygf9rzlm343nulpue3pgkx8jmvyeayh86cfrus4x6fdh
 
 ## TL;DR
 
-* given Lightning channels are practically trustless,
-* and they can have any rules that both sides agree to:
-* let's agree to hold tagged payments in a reserve output
-* and pay invoices with them when there is a signed request.
-* vault payments are secured by 2-of-2 multisig between channel peers**
-* operators should run multiple vaults with different peers who cross-audit**
-* others will monitor your channel updates in exchange for traffic.
-* if you want to leave you can ask others to take your obligations,
-* and if it all blows up the full reserves go to someone else in the system.
-
-## Abstract
-
-<span class="newthought">We present Bitcoin Deposits</span>, a Layer 3 protocol utilizing channel consensus, 2-of-2 vault multisig addressing, and full reserve requirements that enables users to maintain Lightning wallets without requiring on-chain Bitcoin transactions or channel management. This protocol introduces validated outputs—a new Lightning extension that allows commitment transactions to include outputs subject to agreed-upon validation rules, enforcing protocol compliance at the channel layer. Vault payments are addressed using 2-of-2 multisig keys derived from both channel peers, preventing operators from selectively honoring payments.** Through cryptographic authentication, mandatory over-reserve requirements, metrics-based auditor monitoring, and deterministic validation rules, the system creates economic incentives for honest behavior while providing instant Lightning access. Organic trust emerges through multi-vault architectures where operators maintain multiple vaults with different peers who cross-audit each other, creating mutual accountability that makes collusion economically irrational. Integration with Nostr Wallet Connect enables users to access deposits from any compatible wallet interface. We rely on objective performance metrics and neutral party intervention for recovery scenarios, creating a trust-minimized system that enables users to match deposit sizes to operator reputation value.
+* we leverage a Lightning channel's uanimous consensus to implement a ledger of deposits
+* with full reserves and security deposits held in a dedicated transaction output.
+* MuSig2 is used to create deposit invoices that ensure balances are properly credited.
+* these balances are used to pay invoices when a request is signed by the depositor.
+* operators should run balanced vaults across different partners
+* partners that cross-audit their other vault channel updates.
+* if someone wants to leave they can ask others to service their deposits
+* but unilateral close sends reserves and security deposits to a multisig of channel partners.
+* if the operator was honest and requests to continue, it is fully returned to them
+* if they were provably dishonest, channel partners unilaterally close vault channels.
+* security deposits from all channels are used to re-create stolen reserves
+* and randomly selected partners re-establish services for each of the closed vaults.
+* is it trustless? not quite. but it's close, and it scales
 
 ## 1. Introduction
 
-<span class="newthought">The Lightning Network has demonstrated</span> the viability of off-chain Bitcoin transactions, achieving sub-second settlement times with minimal fees. However, adoption remains constrained by the complexity of channel management and the requirement for on-chain transactions to establish payment channels. Each new Lightning user must execute at least one on-chain transaction, creating a scalability bottleneck as Bitcoin's block space is limited.
+<span class="newthought">The Lightning Network has demonstrated</span> the viability of off-chain Bitcoin transactions, achieving sub-second settlement times with minimal fees. However, adoption remains constrained by the complexity of channel management and the requirement for on-chain transactions to establish payment channels. Each new Lightning participant must execute at least one on-chain transaction, creating a scalability bottleneck as Bitcoin's block space is limited.
 
-Additionally, Lightning's current architecture assumes users can maintain high availability for channel management and have reliable internet for gossip synchronization. This excludes users in developing regions with intermittent connectivity and those who need simple, phone-based payment solutions. Even wealthy users may prefer the simplicity of delegated channel management while maintaining cryptographic control of their funds.
+Additionally, Lightning's current architecture assumes participants can maintain high availability for channel management and have reliable internet for gossip synchronization. This excludes those in developing regions with intermittent connectivity and those who need simple, phone-based payment solutions. Even wealthy participants may prefer the simplicity of delegated channel management while maintaining cryptographic control of their funds.
 
-Existing solutions to this problem involve custodial services that sacrifice Bitcoin's core property of cryptographic verifiability. Users must trust operators to maintain reserves and process withdrawals honestly. Chaumian Ecash systems like Cashu provide privacy but require users to trust mints with custody of funds without transparent reserve requirements.
+Existing solutions to this problem involve custodial services that sacrifice Bitcoin's core property of cryptographic verifiability. Depositors must trust operators to maintain reserves and process withdrawals honestly. Chaumian Ecash systems provide privacy but require participants to trust mints with custody of funds without transparent reserve requirements.
 
-We propose a new layer 3 protocol that enables Lightning wallets through validated outputs—a Lightning protocol extension that allows commitment transactions to include outputs subject to agreed-upon validation rules. Users control deposits through cryptographic keys without managing channels, while operators are constrained by protocol rules enforced at the Lightning channel level and monitored by auditors. Critically, vault payments are addressed using 2-of-2 multisig keys derived from both channel peers, preventing operators from pocketing payments intended for vaults. The system achieves:
+We propose a new layer 3 protocol that enables Lightning wallets through validated outputs: a Lightning protocol extension that describes new commitment transaction outputs which are subject to negotiated validation rules. Depositors will control funds through cryptographic keys without managing channels, while operators are constrained by protocol rules enforced at the Lightning channel level and monitored by other channel partners. Vault payments are addressed using MuSig2 keys derived from both channel peers, preventing operators from pocketing payments intended for vaults. Consensus rules allow operators to establish recurring maintenance fees, making profitability commonly achievable.
 
-- **Zero on-chain footprint** for users through Layer 3 abstraction
-- **Offline receiving** where the vault creates invoices on user's behalf
+The system achieves:
+
+- **Zero on-chain footprint** for depositors through Layer 3 abstraction
+- **Offline receiving** where the vault creates invoices on depositor's behalf
 - **Low-connectivity sending** without gossip sync requirements
 - **Cryptographic enforcement** via validated outputs in commitment transactions
-- **2-of-2 multisig addressing** preventing selective payment honoring
+- **MuSig2 addressing** preventing selective payment honoring
 - **Organic trust** through multi-vault cross-auditing networks
 - **Economic sustainability** through routing fees and configurable maintenance fees
 - **Progressive trust model** matching deposit size to operator reputation
-- **Metrics-based reliability** through objective auditor monitoring
 - **Trust-minimized operation** through full reserve requirements
 - **Flexible deployment** through support for operators at all reputation levels
 - **Universal wallet access** via Nostr Wallet Connect integration
@@ -56,7 +57,7 @@ Bitcoin Deposits requires a new Lightning Network protocol extension called "val
 │      Layer 3        │  Bitcoin Deposits Protocol
 │  (Deposit Wallets)  │  - Vault management
 │                     │  - Payment authorization
-│                     │  - 2-of-2 multisig addressing
+│                     │  - MuSig2 multisig addressing
 ├─────────────────────┤
 │      Layer 2        │  Lightning Network + Validated Outputs
 │ (Payment Channels)  │  - Validation framework
@@ -76,7 +77,6 @@ The validated outputs extension requires:
 2. **Channel Messages**: Extended to support validator negotiation
 3. **Update Protocol**: New message types for validated output operations
 4. **Commitment Structure**: Validated outputs included deterministically
-5. **Auditor Requirements**: Deposit auditors must approve of vault operators
 6. **Multisig Coordination**: Both peers must cooperate for vault payment processing
 
 Both channel partners must validate all outputs before signing commitments, ensuring consensus on protocol rules.
@@ -104,108 +104,91 @@ In the Bitcoin Deposits protocol, auditing is handled through a natural network 
 - Natural business incentives for accurate monitoring
 - Scales organically with network growth
 
-## 3. Vault Multisig Addressing
+## 3. Deposits
 
 ### 3.1 Overview
 
-**The core innovation of Bitcoin Deposits is 2-of-2 multisig addressing for vault payments.** This prevents operators from selectively honoring payments by requiring cooperation from both channel peers to claim any payment intended for a vault.
+**A core mechanic of Bitcoin Deposits is MuSig2 addressing for deposit payments.** This prevents operators from selectively honoring payments by requiring cooperation from both channel peers to claim any payment intended for a deposit.
 
 ### 3.2 Vault Creation and Addressing
 
 **Vault Creation:**
-A vault is created within a specific channel and identified by:
-- `vault_id`: A unique identifier within the channel
-- `multisig_pubkey`: A 2-of-2 multisig public key derived from both channel peers' keys
-- `channel_id`: The specific channel containing the vault
-
-**Multisig Key Derivation:**
+A vault is created using a MuSig2 aggregated public key derived from both channel peers:
 ```
-vault_multisig_key = multisig(
-    derive_key(node_a_key, channel_id, vault_id),
-    derive_key(node_b_key, channel_id, vault_id)
+vault_address = MuSig2.KeyAgg(
+    derive_key(operator_key, vault_id),
+    derive_key(partner_key, vault_id)
 )
 ```
 
-**Vault Addressing:**
-Vaults are addressed using the format:
-```
-vault_id@multisig_pubkey
-```
-
-Where:
-- `vault_id` is unique within the channel
-- `multisig_pubkey` is the 2-of-2 multisig key for this vault (globally unique)
-
-### 3.3 Payment Processing
+## 3.3 Payment Processing
 
 **Invoice Generation:**
-When creating an invoice for vault funding:
-1. Generate a standard Lightning invoice addressed to one of the channel peers
-2. Include vault metadata in the invoice description or TLV extension:
-   - `vault_id`
-   - `multisig_pubkey`
-   - `channel_id`
-   - `peer_signature` (signature from the other channel peer approving this vault)
+Each party contributes to the invoice generation, ensuring both are aware of incoming payments. Standard Lightning invoices are created with metadata identifying the target deposit.
 
-**Payment Reception and Escrow:**
-When a payment is received for a vault:
-1. The receiving node identifies it as a vault payment via the metadata
-2. The payment is held in escrow and cannot be claimed unilaterally
-3. Both channel peers must provide signatures to credit the vault
-4. The vault balance is updated only after both signatures are verified
+**Payment Reception and Atomic Crediting:**
+The protocol ensures payments can only be claimed if the corresponding deposit is credited:
+
+1. **HTLC Arrival**: Payment arrives as standard Lightning HTLC
+2. **Vault HTLC Creation**: Operator creates a special `VaultHTLC` output in the validated outputs
+3. **Atomic Resolution**: The VaultHTLC can ONLY be resolved by crediting the deposit balance
+4. **Commitment Update**: A single atomic commitment transaction update:
+   - Removes the VaultHTLC
+   - Credits the deposit balance
+   - Claims the original HTLC with preimage R
+
+**Validation Rules Enforcement:**
+```
+// VaultHTLCs can only be resolved by crediting deposits
+if vault_htlc_removed && deposit_not_credited {
+    REJECT commitment update
+}
+```
+
+This design makes it impossible to claim a payment without crediting the deposit, preventing selective payment attacks.
 
 **Timeout Recovery:**
-To prevent HTLCs from being stuck forever if one peer loses their key:
-```
-vault_claim = multisig(peer_a_key, peer_b_key) OR
-              (vault_output_address + timelock)
-```
+If a VaultHTLC is not processed within the timeout period:
+- The HTLC expires and returns to sender
+- No deposit credit occurs
+- Prevents permanent fund lockup from coordination failures
 
-After a timeout period (typically 24-72 hours), unclaimed HTLCs automatically resolve to a predetermined vault output address controlled by a neutral party, ensuring funds still reach the intended vault system.
+## 3.4 Message Types
 
-### 3.4 Attack Prevention
-
-**The Selective Payment Attack:**
-Without multisig addressing, an operator could:
-1. Receive a payment intended for a vault
-2. Route it through a non-vault-aware channel
-3. Pocket the payment instead of crediting the vault
-4. The vault balance doesn't increase, but the operator keeps the funds
-
-**Multisig Solution:**
-With 2-of-2 multisig addressing:
-1. Payments to vaults require both channel peers to cooperate
-2. The operator cannot unilaterally claim vault payments
-3. Both peers must verify the payment is properly credited to the vault
-4. This creates cryptographic enforcement of vault integrity
-
-### 3.5 Message Types
-
-#### `vault_create` (type TBD)
+#### `vault_create`
 - `vault_id`: Unique identifier for the vault
-- `multisig_pubkey`: 2-of-2 multisig public key
-- `initial_balance`: Starting balance (may be 0)
-- `terms`: Vault terms and conditions
+- `operator_key_share`: Operator's MuSig2 key contribution
+- `partner_key_share`: Partner's MuSig2 key contribution
 
-#### `vault_fund_request` (type TBD)
+#### `vault_htlc_received`
 - `vault_id`: Target vault identifier
-- `amount`: Amount to fund
-- `invoice`: Lightning invoice for the funding
+- `deposit_pubkey`: Target deposit public key
+- `payment_hash`: Lightning payment hash
+- `amount`: Payment amount
+- `cltv_expiry`: Timeout block height
 
-#### `vault_fund_approve` (type TBD)
-- `vault_id`: Vault being funded
-- `signature`: Signature approving the vault credit
-
-#### `vault_balance_update` (type TBD)
+#### `vault_htlc_resolve`
 - `vault_id`: Vault identifier
-- `new_balance`: Updated balance after funding
-- `signatures`: Both peers' signatures
+- `deposit_pubkey`: Deposit being credited
+- `payment_hash`: Payment being resolved
+- `new_balance`: Updated deposit balance after credit
+- `preimage`: Payment preimage R
+- `signatures`: Both peers' signatures for the atomic update
+
+#### `vault_balance_proof`
+- `vault_id`: Vault identifier
+- `deposit_pubkey`: Deposit identifier
+- `balance`: Current balance
+- `update_count`: Monotonic counter of updates
+- `signatures`: Both peers' signatures attesting to balance
+
+The atomic nature of these messages ensures that payment acceptance and balance updates are inseparable, providing strong guarantees against operator misbehavior.
 
 ## 4. Validation Rules
 
 ### 4.1 Core Validation Functions
 
-The Bitcoin Deposits validator implements validation with full deposit state visibility. Validation rules are deterministic and agreed upon by all channel participants. **Critically, both channel peers must validate that vault payments are properly credited to prevent the selective payment attack.**
+The Bitcoin Deposits validator implements validation with full deposit state visibility. Validation rules are deterministic and agreed upon by all channel participants.
 
 ### 4.2 Maintenance Fee Implementation
 
@@ -219,14 +202,14 @@ Maintenance fees are enforced through block-based timing mechanisms similar to H
 Fees are calculated and applied during commitment transaction creation, ensuring deterministic timing. The block-based approach provides:
 - Consistent timing across all implementations
 - Integration with existing Lightning timeout mechanisms
-- Predictable fee schedules for users and operators
+- Predictable fee schedules for depositors and operators
 - Support for both absolute and percentage-based fee structures
 
 ## 5. Security Model
 
 ### 5.1 Trust-Minimized Operation
 
-This protocol is trust-minimized, not fully trustless. However, the 2-of-2 multisig addressing and multi-vault architecture significantly reduce trust requirements by preventing the most common attack vectors.
+This protocol is trust-minimized, not fully trustless. However, the MuSig2 addressing and multi-vault architecture significantly reduce trust requirements by preventing the most common attack vectors.
 
 **Primary Attack Vectors:**
 1. **Operator-Channel Partner Collusion**: Both parties cooperate to steal vault funds
@@ -234,7 +217,7 @@ This protocol is trust-minimized, not fully trustless. However, the 2-of-2 multi
 3. **Fake Invoice Generation**: Operator creates invalid invoices to steal individual payments
 
 **Trust Minimization Through:**
-- **2-of-2 multisig addressing**: Prevents selective payment honoring
+- **MuSig2 multisig addressing**: Prevents selective payment honoring
 - **Multi-vault cross-auditing**: Creates mutual accountability between operators
 - **Full-Reserves**: Operators must maintain more than 100% of deposit balances
 - **Metrics-based monitoring**: Auditors track objective performance indicators
@@ -329,7 +312,7 @@ The key insight of Bitcoin Deposits is that **deposit sizes should match operato
 - Can support substantial deposits (even life savings)
 - Reputation worth far more than any potential theft
 
-Users naturally distribute their holdings based on this hierarchy:
+Depositors naturally distribute their holdings based on this hierarchy:
 - Test deposits with new operators
 - Moderate balances with community operators
 - Substantial holdings with corporate operators
@@ -338,9 +321,9 @@ Users naturally distribute their holdings based on this hierarchy:
 
 ### 5.5 Cross-Vault Monitoring
 
-Channel partners report objective metrics about their operator's other vaults:
+Auditing peers report objective metrics about vaults:
 - **Uptime**: Vault response rates across the network
-- **Payment Integrity**: Proper multisig payment processing
+- **Payment Integrity**: Proper payment processing
 - **Reserve Compliance**: Verified reserve levels vs. deposits
 - **Response Times**: Payment authorization latency
 - **Cross-Vault Health**: Network connectivity and balance
@@ -351,10 +334,10 @@ Channel partners report objective metrics about their operator's other vaults:
 - Aggregated across all channel partners in the network
 - Historical trends enable early warning systems
 - Cross-validation between multiple reporting partners
-- Transparent scoring for user decision-making
+- Transparent scoring for depositor decision-making
 
 **Network Transparency:**
-- Users can assess operator vault network health
+- Depositors can assess operator vault network health
 - Market rewards operators with robust cross-auditing
 - Poor performers isolated through reduced partnerships
 - Natural selection improves overall network quality
@@ -389,55 +372,21 @@ This recovery model aligns with the security deposit structure where each operat
 - Block delay prevents manipulation of selection timing
 - Creates fair, unbiased auditor selection for recovery
 
-**Selected Auditor Obligations**:
+**Auditing Channel Partner Expectations**:
 - Recreate deposit accounts with equivalent balances
 - Honor existing payment authorizations
-- Coordinate recovery across multiple selected auditors if needed
 - Accept monitoring of recovery process
 
 **Recovery Guarantee**:
-Users' funds are protected through:
+Depositors' funds are protected through:
 - Cryptographic enforcement via Bitcoin consensus
 - Deterministic selection prevents gaming
 - Auditor records enable accurate balance verification
 - Economic incentives align auditor interests with proper recovery
 
-This approach eliminates human discretion from recovery while ensuring funds reach qualified parties who can properly restore vault operations.
+This approach eliminates human discretion from recovery while ensuring funds reach qualified parties who can resume vault operations.
 
-### 5.7 Configuration Flexibility
-
-The protocol supports multiple operational configurations, each with different trust and efficiency tradeoffs:
-
-**Standard Configuration (A+B|C)**:
-- A: Vault operator manages deposits
-- B: Channel partner provides infrastructure
-- C: Neutral party handles recovery
-- Maximum separation of concerns
-- Suitable for new operators building reputation
-
-**Multi-Vault Web Configuration** (Recommended):
-- Multiple vaults with cross-auditing channel partners
-- Recovery outputs as multisig of auditors
-- Balanced deposit distribution across vaults
-- Optimal security through organic accountability
-- Natural progression for growing operators
-
-**Consolidated Recovery (A+B|B)**:
-- Channel partner serves dual role as recovery agent
-- Natural synergy for Lightning Service Providers
-- Existing infrastructure monetization
-- Efficient for established channel relationships
-
-**Operator Recovery (A+B|A)**:
-- Operator controls recovery process
-- Requires strong existing reputation
-- Channel partner provides accountability
-- Suitable for well-known operators
-
-**Configuration Progression**:
-New operators typically start with full separation (A+B|C) to build trust. As reputation solidifies and they establish multi-vault architectures, they gain flexibility in configuration choices. The market determines which configurations users accept based on operator history, vault architecture, and deposit sizes.
-
-### 5.8 Vault-Initiated Transfers
+### 5.7 Vault-Initiated Transfers
 
 Vaults can transfer deposits to other vaults for operational efficiency:
 
@@ -450,19 +399,18 @@ Transfer Process:
 
 2. Verify destination vault compatibility:
    - Supports Bitcoin Deposits protocol
-   - Has acceptable auditor approval
+   - Has acceptable reputation
    - Has sufficient capacity and reserves
 
-3. Create Lightning payment to destination vault with metadata:
-   - Transfer amount
-   - Deposit details (eg, public key, fee structures)
+3. Create keysend payment to destination vault with metadata:
+   - Deposit details (public key, current fee structures, connection details)
 
 4. Upon payment confirmation:
    - Destination vault adds deposit with transferred balance
    - Origin vault zeros the deposit balance
    - Both vaults update their validated outputs
 
-5. If payment fails, no state change occurs (atomicity preserved)
+5. If payment fails, no state change occurs
 ```
 
 This enables vaults to:
@@ -471,24 +419,24 @@ This enables vaults to:
 - Balance load across the network
 - Respond to capacity constraints
 
-Users discover transfers through:
+Depositors discover transfers through:
 - Auditor reports of balance movements
 - Wallet interfaces showing vault changes
 - Continued ability to authorize payments from new vault
 
-**User-initiated rebalancing**:
+**Depositor-initiated rebalancing**:
 1. Open new deposit at preferred vault
 2. Authorize payment from old vault to themselves
 3. Receive payment at new vault deposit
 
-### 5.9 Operational Flexibility
+### 5.8 Operational Flexibility
 
 The protocol's design enables flexible deployment models:
 
-**Geographic Distribution**: Vault operators can serve users globally without geographic restrictions. The Lightning Network's onion routing naturally provides payment privacy.
+**Geographic Distribution**: Vault operators can serve depositors globally without geographic restrictions. The Lightning Network's onion routing naturally provides payment privacy.
 
 **Progressive Reputation Building**: New operators can enter the market and build reputation over time:
-1. Start with small deposits from risk-tolerant users
+1. Start with small deposits from risk-tolerant depositors
 2. Establish multi-vault architecture early
 3. Build metrics through consistent operation
 4. Attract larger deposits as reputation solidifies
@@ -496,11 +444,11 @@ The protocol's design enables flexible deployment models:
 
 **Infrastructure Specialization**: Different entities can focus on their strengths:
 - Channel partners can focus on Lightning infrastructure
-- Vault operators can focus on user experience
+- Vault operators can focus on depositor experience
 - Recovery agents can specialize in dispute resolution
 - Natural separation allows each party to optimize their role
 
-**User Privacy**: Users need only share:
+**Depositor Privacy**: Depositors need only share:
 - A public key for deposit control
 - Authorization signatures for transactions
 - No personal information is required by the protocol
@@ -508,7 +456,7 @@ The protocol's design enables flexible deployment models:
 **Connection Privacy**: Standard privacy tools enhance operational security:
 - Tor support for anonymous network access
 - NWC (Nostr Wallet Connect) for remote wallet management
-- No requirement for direct user-operator connections
+- No requirement for direct depositor-operator connections
 
 ## 6. Implementation Requirements
 
@@ -517,32 +465,29 @@ The protocol's design enables flexible deployment models:
 **Message Flow Integration:**
 Validated output messages integrate with existing Lightning message flow during commitment transaction updates. Both channel partners must validate all outputs before signing new commitments, ensuring consensus on protocol rules.
 
-**Multisig Support:**
-- Key derivation for vault multisig addresses
+**MuSig2 Support:**
+- Key derivation for vault address
 - Cooperative signing for vault payment processing
-- Timeout handling for stuck HTLCs
-- Integration with existing HTLC processing logic
 
-### 6.2 Vault Operator Requirements
+### 6.2 Vault Operator Expectations
 
 **Multi-Vault Network Management:**
 - Ideally maintain 4-6 Lightning channels with different partners
-- Coordinate vault addressing across all channels
-- Ensure channel partners can audit other vaults in the network
+- Ensure channel partners audit other vaults
 - Maintain balanced vault sizes for symmetric security exposure
-- Choose security deposits aligned with vault count (~100% ÷ count)
+- Choose security deposits aligned with number of vaults (~100% ÷ count)
 
-**Operational Requirements:**
+**Operational Expectations:**
 - Process deposit operations and payment authorizations
-- Maintain full reserve requirements across all vaults
-- Publish consistent fee schedules across vault network
+- Maintain full reserve requirements plus security deposits across all vaults
+- Publish consistent fee schedules
 - Coordinate with channel partners for recovery scenarios
-- Build reputation through consistent cross-vault performance
+- Build reputation through connections and consistent cross-vault performance
 
-### 6.3 Channel Partner Requirements
+### 6.3 Channel Partner Expectations
 
 **Vault Infrastructure Support:**
-- Participate in 2-of-2 multisig vault addressing
+- Participate in MuSig2 vault creation
 - Validate and co-sign vault payment processing
 - Monitor commitment transactions for validated outputs
 - Provide infrastructure support for vault operations
@@ -550,7 +495,7 @@ Validated output messages integrate with existing Lightning message flow during 
 **Cross-Auditing Responsibilities:**
 - Monitor channel partners' other vault operations
 - Report performance metrics to reputation systems
-- Force close upon detecting dishonesty in audited vaults
+- Force close channels upon detecting dishonesty in channel partners
 - Participate in recovery processes for force closes
 - Maintain audited vault balance records
 
@@ -560,9 +505,9 @@ Validated output messages integrate with existing Lightning message flow during 
 - Participate in recovery processes as needed
 - Compete on infrastructure quality and reliability
 
-### 6.4 Auditor Requirements
+### 6.4 Auditor Expectations
 
-- Monitor validated outputs in commitment transactions
+- Monitor commitment transaction updates
 - Provide soft enforcement through reputation reporting
 - Report compliance scores and violations
 - Monitor vault payment processing integrity
@@ -572,14 +517,12 @@ Validated output messages integrate with existing Lightning message flow during 
 - Maintain independence from operators they audit
 - Compete on accuracy and reliability of monitoring
 
-### 6.5 Client Requirements
+### 6.5 Client Expectations
 
-- Manage single ECDSA keypair that controls one or many deposits
+- Manage Schnorr keypairs that each control one or many deposits
 - Sign payment authorizations
-- Validate invoices to prevent fake invoice attacks
+- Validate invoice signatures to prevent fake invoice attacks
 - Track deposit states across multiple vaults
-- Select acceptable auditors for each deposit
-- Monitor operator reputation scores
 - Prefer operators with robust multi-vault architectures
 - Implement deposit distribution strategies
 
@@ -593,21 +536,21 @@ Validated output messages integrate with existing Lightning message flow during 
 
 ### 7.1 Universal Applicability
 
-Bitcoin Deposits serves users across the entire economic spectrum:
+Bitcoin Deposits serves depositors across the entire economic spectrum:
 
-**High-Value Users**:
+**High-Value Depositors**:
 - Simplified Lightning access without channel management
 - Ability to distribute holdings across multiple operators
 - Corporate operators provide institutional-grade security
 - Maintain cryptographic control of funds
 
-**Medium-Value Users**:
+**Medium-Value Depositors**:
 - Access to Lightning without on-chain transactions
 - Choice of operators based on reputation/trust preferences
 - Easy migration between operators as needs change
 - Community operators provide good balance of trust and accessibility
 
-**Low-Value Users**:
+**Low-Value Depositors**:
 - Entry point to Lightning Network without minimum balances
 - Progressive upgrade path as holdings grow
 - Anonymous operators enable permissionless access
@@ -623,7 +566,7 @@ The protocol naturally encourages risk management through network effects:
 - Assess quality and reputation of channel partners
 - Monitor cross-vault performance metrics
 - Evaluate geographic and operational diversity
-- Track security deposit alignment across vaults
+- Track security deposit levels across vaults
 
 **Network Health Indicators:**
 - Balanced vault sizes indicate professional operation
@@ -640,7 +583,7 @@ The protocol naturally encourages risk management through network effects:
 - Market forces improve network architectures
 
 **Systemic Resilience:**
-- Multiple vault failures required to affect user funds
+- Multiple vault failures required to affect depositor funds
 - Channel partner network provides natural recovery
 - Cross-auditing prevents undetected issues
 - Network effects punish bad actors across all relationships
@@ -651,27 +594,25 @@ The protocol naturally encourages risk management through network effects:
 The protocol creates sustainable economics for all participants:
 
 **For Operators**:
-- Revenue from maintenance fees and LSP services
-- Reputation as valuable long-term asset
-- Growing deposit base from good performance
+- Revenue from maintenance fees and low connectivity routing
+- Reputation as a valuable long-term asset
 - Market differentiation through service quality
-- Multi-vault web builds trust over time
+- Multi-vault web of operations builds trust over time
 
 **For Channel Partners**:
-- Revenue sharing for infrastructure provision
+- Revenue sharing through liquidity
 - Economic incentive to properly validate vault payments
-- Additional revenue from auditing other vaults
 - Reduced risk through shared responsibility
 - Natural business model for LSPs
 
 **For Auditors**:
-- Fee revenue from monitoring services
+- Potential fee revenue from monitoring services
 - Reputation for accurate reporting
 - Network effects from wide adoption
 - Competition drives monitoring innovation
 - Natural role for channel partners
 
-**For Users**:
+**For Depositors**:
 - Access to Lightning without technical complexity
 - Choice of trust/convenience/cost tradeoffs
 - Competitive fee pressure from operator competition
@@ -681,14 +622,14 @@ The protocol creates sustainable economics for all participants:
 
 ### 7.4 Trust Model
 
-The protocol operates on a **progressive trust model** that adapts to user needs:
+The protocol operates on a **progressive trust model** that adapts to depositor needs:
 
 **Cryptographic guarantees**:
 - Authorization required for all balance decreases
 - Validation rules enforced by channel consensus
 - Atomic transfers via Lightning payments
-- User maintains exclusive control via private key
-- **2-of-2 multisig prevents selective payment honoring**
+- Depositor maintains exclusive control via private key
+- Musig2 multisig prevents selective payment honoring
 
 **Web of Trust guarantees**:
 - Multi-vault architectures create mutual accountability
@@ -712,7 +653,7 @@ The protocol operates on a **progressive trust model** that adapts to user needs
 ### 7.5 Comparison with Existing Solutions
 
 **Vs. Self-Custodial Lightning (Phoenix/Breez)**:
-- Simpler user experience (no channel management)
+- Simpler depositor experience (no channel management)
 - Better offline receiving capabilities
 - Works with any wallet via NWC
 - Cryptographic protection via multisig addressing
@@ -720,7 +661,7 @@ The protocol operates on a **progressive trust model** that adapts to user needs
 - Trade-off: requires trusting vault operators
 
 **Vs. Custodial Services**:
-- User maintains cryptographic control
+- Depositor maintains cryptographic control
 - Transparent reserve requirements
 - Open protocol enables competition
 - Objective performance monitoring
@@ -752,12 +693,12 @@ Bitcoin Deposits enables organic growth through market dynamics:
 - Successful operators attract larger deposits
 - Multi-vault networks become standard
 - Corporate entities enter with instant credibility
-- Wallet integration improves user experience
+- Wallet integration improves depositor experience
 - Network effects drive adoption
 - Proven security model builds confidence
 
 **Maturity Phase**:
-- Full spectrum of operators serves all users
+- Full spectrum of operators serves all depositors
 - Robust cross-auditing networks established
 - Insurance products develop for additional protection
 - Regulatory frameworks adapt to reality
@@ -775,21 +716,21 @@ Bitcoin Deposits enables organic growth through market dynamics:
 
 ## 8. Conclusion
 
-Bitcoin Deposits provides a trust-minimized path to Lightning Network access for all users, regardless of their technical capability, connectivity, or wealth. The introduction of 2-of-2 multisig addressing for vault payments significantly strengthens the security model by preventing operators from selectively honoring payments. The addition of multi-vault architectures with cross-auditing creates organic trust through mutual accountability, making collusion economically irrational. By acknowledging that different users have different needs and risk tolerances, the protocol enables a market-based approach where deposit sizes naturally match operator reputation values and architectural robustness.
+Bitcoin Deposits provides a trust-minimized path to Lightning Network access for all depositors, regardless of their technical capability, connectivity, or wealth. The introduction of MuSig2 keys for vault payments significantly strengthens the security model by preventing operators from selectively honoring payments. The addition of multi-vault architectures with cross-auditing creates organic trust through mutual accountability, making collusion economically irrational. By acknowledging that different depositors have different needs and risk tolerances, the protocol enables a market-based approach where deposit sizes naturally match operator reputation values and architectural robustness.
 
-The key innovation is not in preventing all possible theft but in creating transparent mechanisms for reputation building, structural accountability, and risk assessment, while cryptographically preventing the most common attack vectors and economically disincentivizing collusion. Users can make informed decisions about which operators to trust with what amounts, while market dynamics ensure that good operators thrive and bad operators fail.
+The key innovation is not in preventing all possible theft but in creating transparent mechanisms for reputation building, structural accountability, and risk assessment, while cryptographically preventing the most common attack vectors and economically disincentivizing collusion. Depositors can make informed decisions about which operators to trust with what amounts, while market dynamics ensure that good operators thrive and bad operators fail.
 
 This pragmatic approach enables:
 - **Universal access** to Lightning payments without on-chain transactions
-- **User sovereignty** through cryptographic control of deposits
-- **Cryptographic payment integrity** via 2-of-2 multisig addressing
+- **Depositor sovereignty** through cryptographic control of deposits
+- **Cryptographic payment integrity** via MuSig2 addressing
 - **Organic trust building** through visible multi-vault architectures
 - **Market efficiency** through operator competition
-- **Progressive adoption** as users can start small and grow
+- **Progressive adoption** as deposits can start small and grow
 - **Systemic resilience** through diversification and choice
 
-The protocol succeeds by providing infrastructure that meets users where they are. Whether someone has $10 or $10 million, intermittent connectivity or fiber internet, technical expertise or none at all—Bitcoin Deposits provides an appropriate solution that maintains the core principle of cryptographic verifiability while acknowledging the realities of human trust networks.
+The protocol succeeds by providing infrastructure that meets people where they are. Whether someone has $10 or $10 million, intermittent connectivity or fiber internet, technical expertise or none at all—Bitcoin Deposits provides an appropriate solution that maintains the core principle of cryptographic verifiability while acknowledging the realities of human trust networks.
 
-The combination of 2-of-2 multisig addressing and organic multi-vault architectures transforms Bitcoin Deposits from a purely reputation-based system to one with strong cryptographic guarantees and structural incentives for honest behavior. This makes the protocol suitable for users across the entire economic spectrum, from small-amount testers to large-scale adopters.
+The combination of MuSig2 addressing and organic multi-vault architectures transforms Bitcoin Deposits from a purely reputation-based system to one with strong cryptographic guarantees and structural incentives for honest behavior. This makes the protocol suitable for peoples across the entire economic spectrum, from small-amount testers to large-scale adopters.
 
-Bitcoin Deposits is evolution, not revolution. It builds on Lightning's success while addressing its adoption barriers. By creating space for operators at all reputation levels to serve users with all risk tolerances, by providing cryptographic protection against the most common attack vectors, and by fostering organic trust through cross-vault accountability, we enable the Lightning Network to truly become the payment layer for the world.
+Bitcoin Deposits is evolution, not revolution. It builds on Lightning's success while addressing its adoption barriers. By creating space for operators at all reputation levels to serve peoples with all risk tolerances, by providing cryptographic protection against the most common attack vectors, and by fostering organic trust through cross-vault accountability, we enable the Lightning Network to truly become the payment layer for the world.
