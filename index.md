@@ -44,20 +44,29 @@ The system achieves:
 - **Flexible deployment** through support for operators at all reputation levels
 - **Universal wallet access** via Nostr Wallet Connect integration
 
+### 1.1 Design Notes
+
+- **One vault address per operator**: Each vault services many deposits, scaling with operators not depositors
+- **Maintenance fees fundamentally change node economics**: Predictable revenue from idle deposits, not just routing fees
+- **Theft requires active collusion**: Both operator AND channel partner must modify software and coordinate
+- **Collusion is self-defeating**: Channel partners profit more by revealing dishonesty and claiming security deposits
+- **Market adoption over protocol adoption**: A small number of well-capitalized operators can service millions of deposits
+- **MuSig2 prevents selective theft**: Operators cannot steal individual payments without channel partner cooperation
+
 ## 2. Validated Outputs Extension
 
 ### 2.1 Overview
 
-Bitcoin Deposits requires a new Lightning Network protocol extension called "validated outputs" that enables commitment transactions to include additional outputs subject to validation rules agreed upon by channel partners. This mechanism provides cryptographic enforcement of Layer 3 protocols at the Lightning consensus layer.
+Bitcoin Deposits uses a new Lightning Network protocol extension called Validated Outputs that manages additional channel outputs which are subject to negotiated validation rules. This mechanism provides cryptographic enforcement of Layer 3 protocols at the Lightning consensus layer.
 
 ### 2.2 Protocol Layers
 
 ```
 ┌─────────────────────┐
 │      Layer 3        │  Bitcoin Deposits Protocol
-│  (Deposit Wallets)  │  - Vault management
-│                     │  - Payment authorization
-│                     │  - MuSig2 multisig addressing
+│  (Deposit Wallets)  │  - Private key controlled deposits
+│                     │  - MuSig2 invoices
+│                     │  - Security deposits and recovery protocol
 ├─────────────────────┤
 │      Layer 2        │  Lightning Network + Validated Outputs
 │ (Payment Channels)  │  - Validation framework
