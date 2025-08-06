@@ -138,26 +138,26 @@ Each party contributes to the invoice generation, ensuring both are aware of inc
 **Payment Reception and Atomic Crediting:**
 The protocol ensures payments can only be claimed if the corresponding deposit is credited:
 
-1. **HTLC Arrival**: Payment arrives as standard Lightning HTLC
-2. **Vault HTLC Creation**: Operator creates a special `VaultHTLC` output in the validated outputs
-3. **Atomic Resolution**: The VaultHTLC can ONLY be resolved by crediting the deposit balance
+1. **HTLC Arrival**: Payment arrives at operator as standard Lightning HTLC
+2. **Vault HTLC Creation**: Operator creates a `VaultHTLC` marker in the vault
+3. **Atomic Resolution**: The `VaultHTLC` can only be resolved by crediting the deposit balance or rejecting the Lightning HTLC
 4. **Commitment Update**: A single atomic commitment transaction update:
-   - Removes the VaultHTLC
+   - Removes the `VaultHTLC`
    - Credits the deposit balance
-   - Claims the original HTLC with preimage R
+   - Claims the Lightning HTLC with preimage R
 
 **Validation Rules Enforcement:**
 ```
-// VaultHTLCs can only be resolved by crediting deposits
+// `VaultHTLC`s can only be resolved by crediting deposits
 if vault_htlc_removed && deposit_not_credited {
     REJECT commitment update
 }
 ```
 
-This design makes it impossible to claim a payment without crediting the deposit, preventing selective payment attacks.
+Rejection by the channel makes it impossible to claim a payment without crediting the deposit, preventing selective payment attacks.
 
 **Timeout Recovery:**
-If a VaultHTLC is not processed within the timeout period:
+If a `VaultHTLC` is not processed within the timeout period:
 - The HTLC expires and returns to sender
 - No deposit credit occurs
 - Prevents permanent fund lockup from coordination failures
@@ -606,7 +606,7 @@ The protocol creates sustainable economics for all participants:
 - Revenue from maintenance fees and low connectivity routing
 - Reputation as a valuable long-term asset
 - Market differentiation through service quality
-- Multi-vault web of operations builds trust over time
+- Multi-vault web of operations builds reputation over time
 
 **For Channel Partners**:
 - Revenue sharing through liquidity
@@ -659,32 +659,58 @@ The protocol operates on a **progressive trust model** that adapts to depositor 
 - Market dynamics punish bad actors
 - Success stories build ecosystem trust
 
-### 7.5 Comparison with Existing Solutions
+### 7.6 Why Not Existing Solutions?
 
-**Vs. Self-Custodial Lightning (Phoenix/Breez)**:
-- Simpler depositor experience (no channel management)
-- Better offline receiving capabilities
-- Works with any wallet via NWC
-- Cryptographic protection via multisig addressing
-- Organic trust through multi-vault architectures
-- Trade-off: requires trusting vault operators
+**Why not Cashu/Fedimint (Ecash)?**
+- Requires mint-specific tokens that fragment liquidity
+- No cryptographic proof of reserves - just promises
+- No direct Lightning integration - mints must manage Lightning liquidity separately
+- Federated mints add coordination complexity without solving trust
 
-**Vs. Custodial Services**:
-- Depositor maintains cryptographic control
-- Transparent reserve requirements
-- Open protocol enables competition
-- Objective performance monitoring
-- Cannot selectively honor payments
-- Cross-accountability between operators
+**Why not Ark?**
+- Requires users to come online every few weeks or lose funds
+- Introduces novel cryptographic assumptions and complexity
+- Requires users to understand and manage timeout risk
+- Requires service providers who could censor
 
-**Vs. Ecash Systems (Cashu/Fedimint)**:
-- Direct Lightning integration
-- No mint-specific tokens
-- Simpler trust model
-- Better audit capabilities
-- Stronger payment integrity guarantees
-- Visible operator relationships
-- Trade-off: auditors and channel operators have transactional visibility
+**Why not Spark/Statechains?**
+- Limited to fixed denominations reducing payment flexibility
+- Requires users to find counterparties/SSPs for transfers
+- Not integrated with Lightning Network routing
+- Assumes that operators will not leak and securely delete keys
+- Simple transactions can grief using their unilateral exit
+- Early transactions are less expensive to grief
+- Later transactions are more expensive to defend
+- On-chain activity defeats scaling goals
+
+**Why not Liquid?**
+- Federated peg introduces trust in federation members
+- Limited Lightning integration requires atomic swaps
+- Permissioned network where federation can censor transactions
+
+**Why not Channel Factories?**
+- Requires on-chain transactions to join factory
+- Complex coordination between factory participants
+- Doesn't solve offline receiving or channel management
+- Uncooperative member can force everyone on-chain
+
+**Why not Hosted Channels?**
+- No consensus enforcement of channel rules
+- Provider can arbitrarily modify balances
+- No standardization across implementations
+- Requires trust without cryptographic guarantees
+
+**Why not Lightning Addresses with LSPs?**
+- Requires each user to have their own Lightning node
+- LSPs still require on-chain transactions for channel creation
+- Users must manage channel liquidity and backups
+- Complexity of node management remains
+
+**Why not Simple Custody?**
+- No cryptographic proof of reserves
+- No protection against selective payment processing
+- Single point of failure with no recovery mechanism
+- No competitive pressure for good behavior
 
 ### 7.6 Deployment Strategy
 
@@ -717,11 +743,9 @@ Bitcoin Deposits enables organic growth through market dynamics:
 ### 7.7 Future Considerations
 
 1. **Privacy Enhancements**: Balance transparency vs. operator needs while maintaining multisig security
-2. **Cross-Implementation Support**: Ensure broad compatibility of multisig coordination
-3. **Insurance Integration**: Third-party protection options for remaining trust requirements
-4. **Regulatory Adaptation**: Maintain flexibility for compliance while preserving cryptographic guarantees
-5. **Protocol Governance**: Upgrade mechanisms as ecosystem evolves
-6. **Recovery Design**: Complete specification for recovery party mechanisms
+2. **Cross-Implementation Support**: Ensure broad compatibility of MuSig2 coordination
+3. **Protocol Governance**: Upgrade mechanisms as ecosystem evolves
+4. **Tokenization options**: Guaranteed full reserve ecash. Recovery is an issue
 
 ## 8. Conclusion
 
