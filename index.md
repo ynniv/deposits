@@ -358,42 +358,72 @@ Auditing peers report objective metrics about vaults:
 2. Validated output must be removed (zero balance)
 3. Standard Lightning cooperative close proceeds
 
-**Force Close Recovery**:
+**Force Close Recovery Process**:
 
-When a force close occurs, the validated output transfers vault funds to a recovery script. Since operators maintain 4-6 vaults with different channel partners, and each vault is audited by the other channel partners in the network, recovery is handled by this existing web of cross-auditing relationships.
+When a force close occurs, the validated output transfers vault funds and security deposits to a simple multisig controlled by the operator's channel partners from their other vaults. This initiates a structured recovery process that distinguishes between honest operational failures and dishonest behavior.
 
-**Recovery Process**:
-1. Force close commitment transaction includes validated output sending funds to recovery script
-2. Recovery script implements time-based degradation selecting from the operator's other channel partners:
-   - **Day 1**: Single pseudorandomly selected channel partner (from operator's other vaults) can claim
-   - **Week 1**: Any 3 channel partners from the network can claim together
-   - **Week 2**: Any single channel partner from the network can claim
-   - **Week 3+**: Community fallback addresses can claim
-3. Selection uses future block entropy to prevent frontrunning manipulation
-4. Claiming channel partners recreate deposits using their existing audit records
-5. Recovery leverages existing vault infrastructure and relationships
+**Stage 1: Initial Force Close Output**
+- Vault funds and security deposits go to threshold multisig of operator's other channel partners
+- Simple spending condition: 3-of-N signatures from channel partner network
+- Partners receive investigative custody to assess situation
 
-**Security Alignment**:
-This recovery model aligns with the security deposit structure where each operator's security deposit equals 100% of vault value divided by the number of other vaults they operate. Since channel partners are already auditing each other's vaults and maintaining the necessary infrastructure, they naturally serve as qualified recovery operators.
+**Stage 2: Protocol Compliance Verification**
+Channel partners verify force close circumstances through objective audit data:
 
-**Anti-Frontrunning Design**:
-- Recovery outcome depends on future block hash, unpredictable when force close initiated
-- Block delay prevents manipulation of selection timing
-- Creates fair, unbiased auditor selection for recovery
+*Verification Activities:*
+- Compare received channel updates against protocol rules
+- Validate that deposit balances match received payments
+- Check reserve requirements and security deposit compliance
+- Verify payment authorizations and balance changes
+- Cross-reference audit records from operator's other vaults
 
-**Auditing Channel Partner Expectations**:
-- Recreate deposit accounts with equivalent balances
+*Network Coordination:*
+- If protocol violations detected: Partners force close operator's other vault channels
+- Security deposits from all channels become available for recovery
+- If all updates valid: Prepare for fund return to compliant operator
+
+**Stage 3: Resolution Based on Protocol Compliance**
+
+*Compliant Operator Path:*
+- Partners return full vault funds and security deposits to operator
+- Operator can resume operations or gracefully wind down
+- Maintains vault network relationships
+- Handles legitimate technical issues or external coordination problems
+
+*Non-Compliant Operator Path:*
+- Proceed to deterministic reassignment using cryptographic selection
+- Security deposits from all closed vaults fund recovery process
+- Channel partners who discovered violations are eligible recovery candidates
+- Cryptographic evidence of violations removes subjectivity from process
+
+**Stage 4: Deterministic Assignment (Non-Compliant Case)**
+
+If operator violated protocol rules, a commit-reveal process selects new operators:
+
+*Commit-Reveal Selection:*
+1. **Commit Phase**: Each recovery participant specifies themselves, a substitute, or abstention
+2. **Reveal Phase**: Partners reveal selections after all commits received
+3. **Entropy Combination**: Use revealed selections + future block hash for final randomness
+4. **Assignment**: Deterministically select recovery operator(s) from qualified candidate pool
+5. **Fund Transfer**: Multisig releases funds to selected operator(s)
+
+*Time-Based Degradation for Assignment:*
+- **Week 1**: Selected recovery operator(s) can claim funds
+- **Week 2**: Any 3 qualified operators can claim together
+- **Week 3**: Any single qualified operator can claim
+
+**Recovery Operator Expectations:**
+- Recreate deposit accounts with balances verified from audit records
 - Honor existing payment authorizations
-- Accept monitoring of recovery process
+- Broadcast updates to auditors during transition period
+- Re-establish reserve requirements
 
-**Recovery Guarantee**:
-Depositors' funds are protected through:
-- Cryptographic enforcement via Bitcoin consensus
-- Deterministic selection prevents gaming
-- Auditor records enable accurate balance verification
-- Economic incentives align auditor interests with proper recovery
-
-This approach eliminates human discretion from recovery while ensuring funds reach qualified parties who can resume vault operations.
+**Key Properties:**
+- **Just**: Honest operators aren't punished for technical failures
+- **Secure**: Non-compliant operators face network-wide consequences
+- **Objective**: Protocol compliance verification, not subjective judgment
+- **Pseudorandom Fallback**: Deterministic assignment when coordination fails
+- **Fund Safety**: Multiple degradation paths prevent permanent loss
 
 ### 5.7 Vault-Initiated Transfers
 
