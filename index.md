@@ -8,14 +8,18 @@ npub12akj8hpakgzk6gygf9rzlm343nulpue3pgkx8jmvyeayh86cfrus4x6fdh
 
 * we leverage a Lightning channel's uanimous consensus to implement a ledger of deposits
 * with full reserves and security deposits held in a dedicated transaction output.
-* MuSig2 is used to create deposit invoices that ensure balances are properly credited.
-* these balances are used to pay invoices when a request is signed by the depositor.
+* joint-signatures are used to create vault addresses and sign attestations
+* invoices are created by the operator, then jointly signed
+* a high-water mark security deposit is maintained until invoices time out or are paid
+* when the invoice is paid, the operator credits the deposit
+* if they don't, evidence of the paid invoice requires honest parties to unilaterally close the channel
+* deposits are used to pay invoices when a request is signed by the depositor.
 * operators should run balanced vaults across different partners
 * partners that cross-audit their other vault channel updates.
 * if someone wants to leave they can ask others to service their deposits
 * but unilateral close sends reserves and security deposits to a multisig of channel partners.
 * if the operator was honest and requests to continue, it is fully returned to them
-* if they were provably dishonest, channel partners unilaterally close vault channels.
+* if they were provably dishonest, channel partners unilaterally close their vault channels.
 * security deposits from all channels are used to re-create stolen reserves
 * and randomly selected partners re-establish services for each of the closed vaults.
 * is it trustless? not quite. but it's close, and it scales
@@ -28,7 +32,7 @@ Additionally, Lightning's current architecture assumes participants can maintain
 
 Existing solutions to this problem involve custodial services that sacrifice Bitcoin's core property of cryptographic verifiability. Depositors must trust operators to maintain reserves and process withdrawals honestly. Chaumian Ecash systems provide privacy but require participants to trust mints with custody of funds without transparent reserve requirements.
 
-We propose a new layer 3 protocol that enables Lightning wallets through validated outputs: a Lightning protocol extension that describes new commitment transaction outputs which are subject to negotiated validation rules. Depositors will control funds through cryptographic keys without managing channels, while operators are constrained by protocol rules enforced at the Lightning channel level and monitored by other channel partners. Vault payments are addressed using MuSig2 keys derived from both channel peers, preventing operators from pocketing payments intended for vaults. Consensus rules allow operators to establish recurring maintenance fees, making profitability commonly achievable.
+We propose a new layer 3 protocol that enables Lightning wallets through validated outputs: a Lightning protocol extension that describes new commitment transaction outputs which are subject to negotiated validation rules. Depositors will control funds through cryptographic keys without managing channels, while operators are constrained by protocol rules enforced at the Lightning channel level and monitored by other channel partners. Vaults are addressed using a multisig between channel partners. Security deposits and penalties when presented with pre-images for signed invoices that were never credited prevent operators from pocketing payments intended for vaults. Consensus rules allow operators to establish recurring maintenance fees, making profitability commonly achievable.
 
 The system achieves:
 
@@ -36,7 +40,8 @@ The system achieves:
 - **Offline receiving** where the vault creates invoices on depositor's behalf
 - **Low-connectivity sending** without gossip sync requirements
 - **Cryptographic enforcement** via validated outputs in commitment transactions
-- **MuSig2 addressing** preventing selective payment honoring
+- **Multisig attestation** providing proof that both parties are involved
+- **Penalties for verifiable theft** making dishonesty unprofitable
 - **Organic trust** through multi-vault cross-auditing networks
 - **Economic sustainability** through routing fees and configurable maintenance fees
 - **Progressive trust model** matching deposit size to operator reputation
@@ -48,10 +53,10 @@ The system achieves:
 
 - **One vault address per operator**: Each vault services many deposits, scaling with operators not depositors
 - **Maintenance fees fundamentally change node economics**: Predictable revenue from idle deposits, not just routing fees
-- **Theft requires active collusion**: Both operator AND channel partner must modify software and coordinate
+- **Theft of funds requires active collusion**: Both operator and channel partner must modify software and coordinate
+- **Theft of payments is defended**: Proof of uncredited payment reveals operator dishonesty
 - **Collusion is self-defeating**: Channel partners profit more by revealing dishonesty and claiming security deposits
 - **Market adoption over protocol adoption**: A small number of well-capitalized operators can service millions of deposits
-- **MuSig2 prevents selective theft**: Operators cannot steal individual payments without channel partner cooperation
 
 ## 2. Validated Outputs Extension
 
@@ -65,7 +70,7 @@ Bitcoin Deposits uses a new Lightning Network protocol extension called Validate
 ┌─────────────────────┐
 │      Layer 3        │  Bitcoin Deposits Protocol
 │  (Deposit Wallets)  │  - Private key controlled deposits
-│                     │  - MuSig2 invoices
+│                     │  - Multisig attestation
 │                     │  - Security deposits and recovery protocol
 ├─────────────────────┤
 │      Layer 2        │  Lightning Network + Validated Outputs
@@ -88,7 +93,7 @@ The validated outputs extension requires:
 4. **Commitment Structure**: Validated outputs included deterministically
 6. **Multisig Coordination**: Both peers must cooperate for vault payment processing
 
-Both channel partners must validate all outputs before signing commitments, ensuring consensus on protocol rules.
+Both channel partners must validate outputs before signing commitments, ensuring consensus on protocol rules
 
 ### 2.4 Cross-Vault Auditing Network
 
@@ -117,7 +122,7 @@ In the Bitcoin Deposits protocol, auditing is handled through a natural network 
 
 ### 3.1 Overview
 
-**A core mechanic of Bitcoin Deposits is MuSig2 addressing for deposit payments.** This prevents operators from selectively honoring payments by requiring cooperation from both channel peers to claim any payment intended for a deposit.
+**A core mechanic of Bitcoin Deposits is multisig invoice attestation** This prevents operators from acting without oversight. If payments are not credited, evidence of payment results in loss of security deposits.
 
 ### 3.2 Vault Creation and Addressing
 
@@ -133,65 +138,13 @@ vault_address = MuSig2.KeyAgg(
 ## 3.3 Payment Processing
 
 **Invoice Generation:**
-Each party contributes to the invoice generation, ensuring both are aware of incoming payments. Standard Lightning invoices are created with metadata identifying the target deposit.
+The vault operator creates an invoice with metadata identifying the target deposit. The channel partner verifies there are security deposits exceeding the high-water mark of recent invoice amounts. If the invoice is well formed and properly secured, both parties use MuSig2 to attest validity of the invoice.
 
-**Payment Reception and Atomic Crediting:**
-The protocol ensures payments can only be claimed if the corresponding deposit is credited:
+**Payment Receptino**
+The operator chooses to place payment balances on the correct deposit. If they choose to keep the funds, it is up to the depositor to reveal proof of payment.
 
-1. **HTLC Arrival**: Payment arrives at operator as standard Lightning HTLC
-2. **Vault HTLC Creation**: Operator creates a `VaultHTLC` marker in the vault
-3. **Atomic Resolution**: The `VaultHTLC` can only be resolved by crediting the deposit balance or rejecting the Lightning HTLC
-4. **Commitment Update**: A single atomic commitment transaction update:
-   - Removes the `VaultHTLC`
-   - Credits the deposit balance
-   - Claims the Lightning HTLC with preimage R
-
-**Validation Rules Enforcement:**
-```
-// `VaultHTLC`s can only be resolved by crediting deposits
-if vault_htlc_removed && deposit_not_credited {
-    REJECT commitment update
-}
-```
-
-Rejection by the channel makes it impossible to claim a payment without crediting the deposit, preventing selective payment attacks.
-
-**Timeout Recovery:**
-If a `VaultHTLC` is not processed within the timeout period:
-- The HTLC expires and returns to sender
-- No deposit credit occurs
-- Prevents permanent fund lockup from coordination failures
-
-## 3.4 Message Types
-
-#### `vault_create`
-- `vault_id`: Unique identifier for the vault
-- `operator_key_share`: Operator's MuSig2 key contribution
-- `partner_key_share`: Partner's MuSig2 key contribution
-
-#### `vault_htlc_received`
-- `vault_id`: Target vault identifier
-- `deposit_pubkey`: Target deposit public key
-- `payment_hash`: Lightning payment hash
-- `amount`: Payment amount
-- `cltv_expiry`: Timeout block height
-
-#### `vault_htlc_resolve`
-- `vault_id`: Vault identifier
-- `deposit_pubkey`: Deposit being credited
-- `payment_hash`: Payment being resolved
-- `new_balance`: Updated deposit balance after credit
-- `preimage`: Payment preimage R
-- `signatures`: Both peers' signatures for the atomic update
-
-#### `vault_balance_proof`
-- `vault_id`: Vault identifier
-- `deposit_pubkey`: Deposit identifier
-- `balance`: Current balance
-- `update_count`: Monotonic counter of updates
-- `signatures`: Both peers' signatures attesting to balance
-
-The atomic nature of these messages ensures that payment acceptance and balance updates are inseparable, providing strong guarantees against operator misbehavior.
+**Preventing Payment Theft**
+When a signed invoice has been paid, the payer will know the payment secret. They can share this secret with the depositor, who can broadcast both the invoice and the secret to all nodes associated with the deposit. An honest channel partner, seeing proof of payment without a corresponding credit, is required to force close the channel. The high-water payment security funds are used to make the depositor whole.
 
 ## 4. Validation Rules
 
@@ -222,11 +175,13 @@ This protocol is trust-minimized, not fully trustless. However, the MuSig2 addre
 
 **Primary Attack Vectors:**
 1. **Operator-Channel Partner Collusion**: Both parties cooperate to steal vault funds
+1. **Operator Payment Pocketing**: The operator receives a payment but doesn't credit the deposit
 2. **Recovery Party Failure**: Recovery party doesn't properly reintegrate deposits after force close
 3. **Fake Invoice Generation**: Operator creates invalid invoices to steal individual payments
 
 **Trust Minimization Through:**
-- **MuSig2 multisig addressing**: Prevents selective payment honoring
+- **Multisig addressing**: Prevents most unilateral actions
+- **Payment security deposits**: Makes evidence of payment theft expensive
 - **Multi-vault cross-auditing**: Creates mutual accountability between operators
 - **Full-Reserves**: Operators must maintain more than 100% of deposit balances
 - **Metrics-based monitoring**: Auditors track objective performance indicators
@@ -286,12 +241,19 @@ This structure creates powerful economic incentives against collusion:
 - **Consequence**: Force closure of other vaults, security deposit forfeiture
 - **Result**: Economic incentives strongly discourage collusion
 
-**2. Recovery Party Failure**
+**2. Operator Payment Thft**
+- **Attack**: Operator receives payment funds but doesn't credit the deposit
+- **Prevention**: Payment secret gives payer proof of payment
+- **Detection**: Depositor reveals proof of payment to channel partner
+- **Consequence**: Force closure of vault, security deposit forfeiture
+- **Result**: Economic incentives strongly discourages payment theft
+
+**3. Recovery Party Failure**
 - **Attack**: Recovery party doesn't properly reintegrate deposits
 - **Status**: Open design item requiring further specification
 - **Potential Mitigations**: Recovery party bonds, multi-party recovery, or auditor-based recovery
 
-**3. Fake Invoice Generation**
+**4. Fake Invoice Generation**
 - **Attack**: Operator creates invalid invoices to redirect payments
 - **Detection**: Immediately visible to validating clients
 - **Scope**: Limited to single payment, not entire vault
@@ -506,7 +468,7 @@ Validated output messages integrate with existing Lightning message flow during 
 
 **MuSig2 Support:**
 - Key derivation for vault address
-- Cooperative signing for vault payment processing
+- Cooperative attestation
 
 ### 6.2 Vault Operator Expectations
 
@@ -544,7 +506,14 @@ Validated output messages integrate with existing Lightning message flow during 
 - Participate in recovery processes as needed
 - Compete on infrastructure quality and reliability
 
-### 6.4 Auditor Expectations
+### 6.4 Other-channel Partner Expectations
+
+- Cross-monitor commitment updates
+- Monitor vault payment processing integrity
+- Provide hard enforcement through unilateral close
+- Directly participate in recovery process
+
+### 6.4 Independent Auditor Expectations
 
 - Monitor commitment transaction updates
 - Provide soft enforcement through reputation reporting
@@ -643,6 +612,7 @@ The protocol creates sustainable economics for all participants:
 - Economic incentive to properly validate vault payments
 - Reduced risk through shared responsibility
 - Natural business model for LSPs
+- Natural potential benefit from recovery process
 
 **For Auditors**:
 - Potential fee revenue from monitoring services
@@ -666,9 +636,10 @@ The protocol operates on a **progressive trust model** that adapts to depositor 
 **Cryptographic guarantees**:
 - Authorization required for all balance decreases
 - Validation rules enforced by channel consensus
-- Atomic transfers via Lightning payments
+- Atomic transfers via Lightning network
 - Depositor maintains exclusive control via private key
-- Musig2 multisig prevents selective payment honoring
+- Multisig attestation prevents deceptive invoices
+- Evidence of non-credited payment reveals dishonest operators
 
 **Web of Trust guarantees**:
 - Multi-vault architectures create mutual accountability
@@ -678,7 +649,7 @@ The protocol operates on a **progressive trust model** that adapts to depositor 
 - Security deposits align long-term incentives
 
 **Economic guarantees**:
-- Over-reserve requirements provide skin in the game
+- Over-reserve requirements provide skin in the game and replacement of stolen funds
 - Security deposit forfeiture exceeds theft gains
 - Reputation value exceeds potential theft gains
 - Competition ensures good behavior
