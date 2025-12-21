@@ -70,24 +70,6 @@ The hash of each update is computed deterministically:
 
 This hash becomes the `previous_state_hash` for the next update, forming the chain.
 
-### SignedAuditUpdateMsg (Wire Format)
-
-The wire protocol uses `SignedAuditUpdateMsg` for broadcasting:
-
-```rust
-pub struct SignedAuditUpdateMsg {
-    pub message: Vec<u8>,              // Serialized original message
-    pub message_type: u16,             // Message type for filtering
-    pub operator_signature: [u8; 64],  // Operator's ECDSA signature
-    pub operator_pubkey: PublicKey,    // Operator's Lightning node ID
-    pub partner_pubkey: PublicKey,     // Partner's public key
-    pub sequence_number: u64,          // Position in update chain
-    pub previous_state_hash: [u8; 32], // Hash before this update
-    pub current_state_hash: [u8; 32],  // Hash after this update
-    pub timestamp: u64,                // When signed
-}
-```
-
 ### Audit Broadcasting
 
 Every ledger update triggers broadcast to all partners and auditors:
