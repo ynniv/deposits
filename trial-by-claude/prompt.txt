@@ -1,0 +1,6 @@
+let's stage a debate on whether the protocol described in this repository can work. it's a proposal, so we can
+  make minor changes to shore things up. we'll make two sub agents, PROSECUTION and DEFENSE. each will write an
+  argument to ${AGENT}_{SEQ}.md, then wait for the next argument file from the other party. we will act as the
+  JUDGE, reading files from both sub agents and writing files JUDGE_{SEQ}.md with instructions or rulings if
+  necessary. the DEFENSE should start. the primary concern is that we avoid an endless cycle of argumentation while
+  discovering valid criticisms
