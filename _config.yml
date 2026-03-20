@@ -6,7 +6,6 @@ description: > # this means to ignore newlines until "baseurl:"
   Enabling Lightning payments without on-chain transactions or channel management.
 
 baseurl: "/" # the subpath of your site, e.g. /blog
-url: "https://deposits.ynniv.com" # the base hostname & protocol for your site
 
 # Build settings
 markdown: kramdown
